@@ -1,0 +1,55 @@
+   __                __                  __      
+  / /  ___ ___  ____/ /  __ _  ___ _____/ /__ ___
+ / _ \/ -_) _ \/ __/ _ \/  ' \/ _ `/ __/  '_/(_-<
+/_.__/\__/_//_/\__/_//_/_/_/_/\_,_/_/ /_/\_\/___/
+
+cmd:	 /home/felixr/janets/janet_2ec12fe0
+ver:	 1.13.2-dev
+build:	 2ec12fe0
+
+noop
+  param=0 ...		min=0.005 max=0.010
+dict_words
+  param=1000000 ...		min=0.350 max=0.372
+sort_hashes_of_tuples
+  param="0" ...		min=0.028 max=0.036
+  param="1000" ...		min=0.026 max=0.027
+  param="10000" ...		min=0.026 max=0.027
+  param="100000" ...		min=0.025 max=0.026
+  param="1000000" ...		min=0.027 max=0.027
+  param="10000000" ...		min=0.026 max=0.029
+  param="100000000" ...		min=0.025 max=0.025
+  param="1000000000" ...		min=0.026 max=0.027
+table_with_struct_keys
+  param="0 200" ...		min=0.027 max=0.035
+  param="1000 200" ...		min=0.027 max=0.029
+  param="10000 200" ...		min=0.027 max=0.036
+  param="100000 200" ...		min=0.027 max=0.030
+  param="1000000 200" ...		min=0.027 max=0.028
+  param="10000000 200" ...		min=0.027 max=0.028
+  param="100000000 200" ...		min=0.027 max=0.027
+  param="1000000000 200" ...		min=0.027 max=0.039
+sort_hashes_of_hashes_of_tuples
+  param="0" ...		min=0.025 max=0.029
+  param="1000" ...		min=0.026 max=0.028
+  param="10000" ...		min=0.025 max=0.026
+  param="100000" ...		min=0.025 max=0.026
+  param="1000000" ...		min=0.024 max=0.027
+  param="10000000" ...		min=0.027 max=0.028
+  param="100000000" ...		min=0.026 max=0.027
+  param="1000000000" ...		min=0.028 max=0.031
+hexagon_tuples
+  param=50 ...		min=0.822 max=0.865
+table_with_tuple_keys
+  param="0 200" ...		min=0.015 max=0.015
+  param="1000 200" ...		min=0.014 max=0.015
+  param="10000 200" ...		min=0.014 max=0.014
+  param="100000 200" ...		min=0.014 max=0.014
+  param="1000000 200" ...		min=0.013 max=0.015
+  param="10000000 200" ...		min=0.014 max=0.014
+  param="100000000 200" ...		min=0.014 max=0.014
+  param="1000000000 200" ...		min=0.014 max=0.016
+
+
+
+@{"noop" @[{:elapsed_time 0.0102808} {:elapsed_time 0.00610971} {:elapsed_time 0.00465488}] "table_with_struct_keys" @[{:elapsed_time 0.0273507} {:elapsed_time 0.0386426} {:elapsed_time 0.0274203}] "sort_hashes_of_tuples" @[{:elapsed_time 0.0267396} {:elapsed_time 0.0263367} {:elapsed_time 0.0260243}] "dict_words" @[{:elapsed_time 0.350202} {:elapsed_time 0.358309} {:elapsed_time 0.371777}] "sort_hashes_of_hashes_of_tuples" @[{:elapsed_time 0.0309596} {:elapsed_time 0.028465} {:elapsed_time 0.0279996}] "hexagon_tuples" @[{:elapsed_time 0.865043} {:elapsed_time 0.862163} {:elapsed_time 0.821949}] "table_with_tuple_keys" @[{:elapsed_time 0.0141673} {:elapsed_time 0.013715} {:elapsed_time 0.0156302}]}
