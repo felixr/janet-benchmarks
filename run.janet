@@ -1,0 +1,54 @@
+(map print [ "   __                __                  __      "
+             "  / /  ___ ___  ____/ /  __ _  ___ _____/ /__ ___"
+             " / _ \\/ -_) _ \\/ __/ _ \\/  ' \\/ _ `/ __/  '_/(_-<"
+             "/_.__/\\__/_//_/\\__/_//_/_/_/_/\\_,_/_/ /_/\\_\\/___/" ""])
+
+(defn run [cmd]
+  (->
+    (file/popen cmd)
+    (file/read :all)
+    (string/trim)))
+
+(def args (dyn :args))
+(def janet-exe (or (get args 1) (run "which janet")))  
+(def janet-version (run (string janet-exe " -e '(print janet/version)'")))  
+(def janet-build (run (string janet-exe " -e '(print janet/build)'")))  
+
+(printf "cmd:\t %s" janet-exe)
+(printf "ver:\t %s" janet-version)
+(printf "build:\t %s" janet-build)
+(print "")
+
+(defn run-benchmark [b param]
+  (def start (os/clock))
+  (def result (run (string janet-exe " benchmarks/" b ".janet " param)))
+  (def stop (os/clock))
+  {:elapsed_time (- stop start)})
+
+#(def benchmarks (os/dir "benchmarks"))
+(def benchmarks ["noop.janet" "tuple_hash.janet"])
+(def benchmarks ["noop.janet"])
+
+(def benchmarks @{"noop" [0]
+                  "dict_words" [1000000]
+                  "table_with_tuple_keys" 
+                  ["0 200" "1000 200" "10000 200" "100000 200" "1000000 200"
+                   "10000000 200"]
+                  "hexagon_tuples" [50]})
+
+
+(def all-results @{})
+(each [b params] (pairs benchmarks)
+  (print b)
+  (each param params
+    (prinf "  param=%q " param)
+    (def results (seq [i :in (range 3)] 
+                   (prin ".")(flush)
+                   (run-benchmark b param)))
+    (put all-results b results)
+    (def times (map (fn [x] (x :elapsed_time)) results))
+    (printf "\t\tmin=%.3f max=%.3f" (min ;times) (max ;times))))
+
+
+(print "\n\n")
+(pp all-results)
