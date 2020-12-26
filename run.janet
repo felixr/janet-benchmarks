@@ -14,9 +14,15 @@
 (def janet-version (run (string janet-exe " -e '(print janet/version)'")))  
 (def janet-build (run (string janet-exe " -e '(print janet/build)'")))  
 
-(printf "cmd:\t %s" janet-exe)
+
+
 (printf "ver:\t %s" janet-version)
 (printf "build:\t %s" janet-build)
+
+(def sha256sum (run "which sha256sum"))  
+(when (not (empty? sha256sum))
+  (printf "sha256:\t %s" (first (string/split " " (run (string sha256sum " -b " janet-exe))))))
+
 (print "")
 
 (defn run-benchmark [b param]
@@ -25,21 +31,26 @@
   (def stop (os/clock))
   {:elapsed_time (- stop start)})
 
-#(def benchmarks (os/dir "benchmarks"))
-(def benchmarks ["noop.janet" "tuple_hash.janet"])
-(def benchmarks ["noop.janet"])
-
 (def benchmarks @{"noop" [0]
                   "dict_words" [1000000]
                   "table_with_tuple_keys"  ["0 200" "1000 200" "10000 200" "100000 200" "1000000 200" "10000000 200" "100000000 200" "1000000000 200"]
                   "table_with_struct_keys" ["0 200" "1000 200" "10000 200" "100000 200" "1000000 200" "10000000 200" "100000000 200" "1000000000 200"]
                   "sort_hashes_of_tuples" ["0" "1000" "10000" "100000" "1000000" "10000000" "100000000" "1000000000"]
                   "sort_hashes_of_hashes_of_tuples" ["0" "1000" "10000" "100000" "1000000" "10000000" "100000000" "1000000000"]
+                  "sort_random_numbers" ["300000 1" "300000 1000000" "300000 1000000000"]
+                  "aoc_2020_d15_p1" [1000000]
                   "hexagon_tuples" [50]})
 
+(def active-benchmarks
+  (if
+    (< (length args) 3)
+    (pairs benchmarks)
+    (let [selected (drop 2 args)]
+      (filter (fn [[k v]] (find (partial = k) selected)) (pairs benchmarks)))))
+    
 
 (def all-results @{})
-(each [b params] (pairs benchmarks)
+(each [b params] active-benchmarks
   (print b)
   (each param params
     (prinf "  param=%q " param)
@@ -51,5 +62,5 @@
     (printf "\t\tmin=%.3f max=%.3f" (min ;times) (max ;times))))
 
 
-(print "\n\n")
+(print "\nDATA:")
 (pp all-results)
