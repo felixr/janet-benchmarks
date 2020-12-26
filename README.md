@@ -2,6 +2,9 @@
 
 A suite of benchmarks targeted at exposing performance problems.
 
+## How to read the output
+
+Each benchmark+param is run 3 times and the min/max time spent is printed.
 Example when run with version 1.12.2:
 
 ```
@@ -25,3 +28,15 @@ dict_words
 
 This output shows that the `table_with_tuple_keys` takes much long if the
 numbers used are in the range of `0 to 200` or `10,000,000 to 10,000,200`. 
+
+Benchmarks under a heading (eg. `table_with_tuple_keys`) should all do the same
+amount of work and take the same amount of time.
+
+## Results
+
+Built with `-O2 -flto` and run on `Intel(R) Core(TM) i7-8650U CPU @ 1.90GHz`:
+
+* [result_1.13.2-dev_03be81b8.txt](results/result_1.13.2-dev_03be81b8.txt)
+  * built at: https://github.com/felixr/janet/commit/03be81b8786d386c17f5ec8fd6c036b7015fac73
+* [result_1.13.2-dev_cae4f196.txt](results/result_1.13.2-dev_cae4f196.txt)
+  * built at: https://github.com/janet-lang/janet/commit/cae4f1962914e27aba3d40aa650ac1e63c3c5a9b
