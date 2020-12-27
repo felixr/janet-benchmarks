@@ -54,14 +54,16 @@
 (def all-results @{})
 (each [b params] active-benchmarks
   (print b)
+  (def b-results @[])
   (each param params
     (prinf "  param=%q " param)
     (def results (seq [i :in (range number-of-runs)]
                    (prin ".")(flush)
                    (run-benchmark b param)))
-    (put all-results b results)
+    (array/push b-results {:param param :results results})
     (def times (map (fn [x] (x :elapsed_time)) results))
-    (printf "\t\tmin=%.3f max=%.3f" (min ;times) (max ;times))))
+    (printf "\t\tmin=%.3f max=%.3f" (min ;times) (max ;times)))
+  (put all-results b b-results))
 
 
 (print "\nDATA:")
