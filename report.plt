@@ -13,10 +13,9 @@ set xlabel "seconds"
 set ylabel "benchmark"
 set border 2 
 
-set yrange [ 0.5 : 10.5 ]
 set logscale x 10
 
 plot "report.dat" using 6:2:4:5:ytic(3) \
         index 0 with xerrorbars linecolor 1  pointtype 9  title columnhead(1), \
-    for [i=1:3] "report.dat" using 6:($2+i*0.2):4:5 \
+    for [i=1:10] "report.dat" using 6:($2+i*0.2):4:5 \
         index i with xerrorbars linecolor (i+1) pointtype 9 title columnhead(1)
