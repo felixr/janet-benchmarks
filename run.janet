@@ -1,3 +1,4 @@
+(import "./base64" :as base64)
 (map print [ "   __                __                  __      "
              "  / /  ___ ___  ____/ /  __ _  ___ _____/ /__ ___"
              " / _ \\/ -_) _ \\/ __/ _ \\/  ' \\/ _ `/ __/  '_/(_-<"
@@ -10,16 +11,16 @@
     (string/trim)))
 
 (def args (dyn :args))
-(def janet-exe (or (get args 1) (run "which janet")))  
-(def janet-version (run (string janet-exe " -e '(print janet/version)'")))  
-(def janet-build (run (string janet-exe " -e '(print janet/build)'")))  
+(def janet-exe (or (get args 1) (run "which janet")))
+(def janet-version (run (string janet-exe " -e '(print janet/version)'")))
+(def janet-build (run (string janet-exe " -e '(print janet/build)'")))
 
 
 
 (printf "ver:\t %s" janet-version)
 (printf "build:\t %s" janet-build)
 
-(def sha256sum (run "which sha256sum"))  
+(def sha256sum (run "which sha256sum"))
 (when (not (empty? sha256sum))
   (printf "sha256:\t %s" (first (string/split " " (run (string sha256sum " -b " janet-exe))))))
 
@@ -47,14 +48,15 @@
     (pairs benchmarks)
     (let [selected (drop 2 args)]
       (filter (fn [[k v]] (find (partial = k) selected)) (pairs benchmarks)))))
-    
+
+(def number-of-runs 10)
 
 (def all-results @{})
 (each [b params] active-benchmarks
   (print b)
   (each param params
     (prinf "  param=%q " param)
-    (def results (seq [i :in (range 3)] 
+    (def results (seq [i :in (range number-of-runs)]
                    (prin ".")(flush)
                    (run-benchmark b param)))
     (put all-results b results)
@@ -63,4 +65,4 @@
 
 
 (print "\nDATA:")
-(pp all-results)
+(print (base64/encode (marshal {:version janet-version :build janet-build :results all-results})))
