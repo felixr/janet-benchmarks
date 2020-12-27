@@ -34,12 +34,9 @@ amount of work and take the same amount of time.
 
 ## Results
 
-Built with `-O2 -flto` and run on `Intel(R) Core(TM) i7-8650U CPU @ 1.90GHz`:
+Built with `-O2 -flto` and run on `Intel(R) Core(TM) i7-8650U CPU @ 1.90GHz`.
+Names are commits; eg. `2ec12fe0` is felixr/janet@2ec12fe06f02deb31aec5dd29595c19359623098 and 
+`cae4f196` janet-lang/janet@cae4f1962914e27aba3d40aa650ac1e63c3c5a9b
 
-* [result_1.13.2-dev_2ec12fe0.txt](results/result_1.13.2-dev_2ec12fe0.txt)
-  * fastest so far
-  * https://github.com/felixr/janet/commit/2ec12fe06f02deb31aec5dd29595c19359623098
-* [result_1.13.2-dev_c76e0ae6.txt](results/result_1.13.2-dev_c76e0ae6.txt)
-  * https://github.com/felixr/janet/commit/c76e0ae685403f7979338ac1a70a17ba93093525
-* [result_1.13.2-dev_cae4f196.txt](results/result_1.13.2-dev_cae4f196.txt)
-  * built at: https://github.com/janet-lang/janet/commit/cae4f1962914e27aba3d40aa650ac1e63c3c5a9b
+![benchmark results][report.png]
+
