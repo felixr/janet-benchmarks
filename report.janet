@@ -14,6 +14,7 @@
 (print "# version\tbenchmark\tmin\tmax\tmean")
 (each ver results
   (def ver-name (string (ver :version) "_" (ver :build)))
+  (print (ver :build))
   (each [name res] (pairs (ver :results))
     (when (nil? (get seen-benchmarks name)) (put seen-benchmarks name (++ idx)))
     (def bidx (get seen-benchmarks name))
