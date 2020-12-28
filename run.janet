@@ -33,12 +33,10 @@
   {:elapsed_time (- stop start)})
 
 (def benchmarks @{"noop" [0]
-                  "dict_words" [1000000]
-                  "table_with_tuple_keys"  ["0 200" "1000 200" "10000 200" "100000 200" "1000000 200" "10000000 200" "100000000 200" "1000000000 200"]
-                  "table_with_struct_keys" ["0 200" "1000 200" "10000 200" "100000 200" "1000000 200" "10000000 200" "100000000 200" "1000000000 200"]
+                  "dict_words" [3000000]
+                  "table_with_tuple_keys"  ["0 600" "1000 600" "10000 600" "100000 600" "1000000 600" "10000000 600" "100000000 600" "1000000000 600"]
+                  "table_with_struct_keys" ["0 500" "1000 500" "10000 500" "100000 500" "1000000 500" "10000000 500" "100000000 500" "1000000000 500"]
                   "table_with_float_keys" ["1000000 1" "1000000 1.79769e+308"]
-                  "sort_hashes_of_tuples" ["0" "1000" "10000" "100000" "1000000" "10000000" "100000000" "1000000000"]
-                  "sort_hashes_of_hashes_of_tuples" ["0" "1000" "10000" "100000" "1000000" "10000000" "100000000" "1000000000"]
                   "sort_random_numbers" ["300000 1" "300000 1000000" "300000 1000000000"]
                   "aoc_2020_d15_p1" [1000000]
                   "hexagon_tuples" [50]})
@@ -50,7 +48,7 @@
     (let [selected (drop 2 args)]
       (filter (fn [[k v]] (find (partial = k) selected)) (pairs benchmarks)))))
 
-(def number-of-runs 10)
+(def number-of-runs 3)
 
 (def all-results @{})
 (each [b params] active-benchmarks
