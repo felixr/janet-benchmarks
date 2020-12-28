@@ -35,8 +35,8 @@ amount of work and take the same amount of time.
 ## Results
 
 Built with `-O2 -flto` and run on `Intel(R) Core(TM) i7-8650U CPU @ 1.90GHz`.
-Names are commits; eg. `2ec12fe0` is  https://github.com/felixr/janet/commit/2ec12fe06f02deb31aec5dd29595c19359623098 and 
-`cae4f196` is  https://github.com/janet-lang/janet/commit/cae4f1962914e27aba3d40aa650ac1e63c3c5a9b
+Names are commits; 
+eg. `cae4f196` is  https://github.com/janet-lang/janet/commit/cae4f1962914e27aba3d40aa650ac1e63c3c5a9b
 
 ![benchmark results](report.png)
 

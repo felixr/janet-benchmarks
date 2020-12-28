@@ -14,9 +14,10 @@
 (def omit-benchmarks @{"noop" true})
 (def omit-versions 
   @{
-    "c76e0ae6" true
-    "2ec12fe0" true
-    "cae4f196" true})
+     "c76e0ae6" true
+    "0d46352f" true
+    "2ec12fe0" true})
+    # "cae4f196" true})
 
 (print "# version\tbenchmark\tmin\tmax\tmean")
 (each ver results
