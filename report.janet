@@ -12,19 +12,14 @@
 (def seen-benchmarks @{})
 
 (def omit-benchmarks @{"noop" true})
-(def omit-versions 
-  @{
-     "c76e0ae6" true
-    "0d46352f" true
-    "2ec12fe0" true})
-    # "cae4f196" true})
+(def omit-builds
+  @{})
 
 (print "# version\tbenchmark\tmin\tmax\tmean")
 (each ver results
   (def ver-name (string (ver :version) "_" (ver :build)))
-  (when (nil? (get omit-versions (ver :build)))
-    (print (ver :build))
-    (each [name res] (pairs (ver :results))
+  (when (nil? (get omit-builds (ver :build)))
+    (each [name res] (sorted (pairs (ver :results)))
       (when (nil? (get seen-benchmarks name)) (put seen-benchmarks name (++ idx)))
       (def bidx (get seen-benchmarks name))
       (def times (->> (mapcat (fn [{:results r}] r) res)
