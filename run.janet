@@ -11,11 +11,10 @@
     (string/trim)))
 
 (def args (dyn :args))
-(def janet-exe (or (get args 1) (run "which janet")))
+(def janet-exe (get args 1))
+(def output-file (get args 2))
 (def janet-version (run (string janet-exe " -e '(print janet/version)'")))
 (def janet-build (run (string janet-exe " -e '(print janet/build)'")))
-
-
 
 (printf "ver:\t %s" janet-version)
 (printf "build:\t %s" janet-build)
@@ -34,23 +33,41 @@
 
 (def benchmarks @{"noop" [0]
                   "dict_words" [3000000]
-                  "table_with_tuple_keys"  ["0 600" "1000 600" "10000 600" "100000 600" "1000000 600" "10000000 600" "100000000 600" "1000000000 600"]
-                  "table_with_struct_keys" ["0 500" "1000 500" "10000 500" "100000 500" "1000000 500" "10000000 500" "100000000 500" "1000000000 500"]
+                  "table_with_tuple_keys"  ["0 600" "1000 600" "10000 600" "100000 600" "1000000 600" "10000000 600"]
+                  "table_with_struct_keys" ["0 600" "1000 600" "10000 600" "100000 600" "1000000 600" "10000000 600"]
                   "table_with_float_keys" ["1000000 1" "1000000 1.79769e+308"]
-                  "sort_random_numbers" ["300000 1" "300000 1000000" "300000 1000000000"]
+                  "sort_random_numbers" ["300000 1" "300000 1000000"]
+                  "hash_numbers" [100000]
                   "aoc_2020_d15_p1" [1000000]
                   "hexagon_tuples" [50]})
 
 (def active-benchmarks
   (if
-    (< (length args) 3)
+    (< (length args) 4)
     (pairs benchmarks)
-    (let [selected (drop 2 args)]
+    (let [selected (drop 3 args)]
       (filter (fn [[k v]] (find (partial = k) selected)) (pairs benchmarks)))))
+
+
+(def previous-results
+  (if (os/stat output-file)
+    (->>
+      (slurp output-file)
+      (string/split "DATA:\n")
+      (last)
+      (string/trim)
+      (base64/decode)
+      (unmarshal))
+    {:version janet-version
+     :build janet-build
+     :results @{}}))
+
+(assert (= janet-version (previous-results :version)) "version does not match")
+(assert (= janet-build (previous-results :build)) "build does not match")
 
 (def number-of-runs 3)
 
-(def all-results @{})
+(def all-results (previous-results :results))
 (each [b params] active-benchmarks
   (print b)
   (def b-results @[])
@@ -61,9 +78,12 @@
                    (run-benchmark b param)))
     (array/push b-results {:param param :results results})
     (def times (map (fn [x] (x :elapsed_time)) results))
-    (printf "\t\tmin=%.3f max=%.3f" (min ;times) (max ;times)))
-  (put all-results b b-results))
+    (printf "\t\tmin=%.3f max=%.3f" (min ;times) (max ;times))
+    (put all-results b b-results)))
 
+(pp all-results)
 
 (print "\nDATA:")
-(print (base64/encode (marshal {:version janet-version :build janet-build :results all-results})))
+(def output (base64/encode (marshal {:version janet-version :build janet-build :results all-results})))
+(print output)
+(spit output-file output)
