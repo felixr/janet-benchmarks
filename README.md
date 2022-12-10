@@ -35,7 +35,7 @@ amount of work and take the same amount of time.
 ## Results
 
 Non `dev` versions are releases downloaded from Github. Names consist of `janet/version` and `janet/build`.
-All benchmarks are run on `Intel(R) Core(TM) i7-8650U CPU @ 1.90GHz`.
+All benchmarks are run on `Intel(R) Core(TM) i7-1165G7 @ 2.80GHz`.
 
 ![benchmark results](report.png)
 
