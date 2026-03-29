@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Janet Benchmarks Dashboard</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #181b23;
+    --surface-2: #20242f;
+    --border: #2c3140;
+    --text: #e6e9ef;
+    --muted: #8b92a5;
+    --accent: #6ea8fe;
+    --good: #4ade80;
+    --bad: #f87171;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    line-height: 1.45;
+  }
+  .container {
+    max-width: 1320px;
+    margin: 0 auto;
+    padding: 24px 20px 48px;
+  }
+  header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+  h1 {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 650;
+    letter-spacing: -0.01em;
+  }
+  .subtitle {
+    color: var(--muted);
+    font-size: 0.9rem;
+    margin-top: 2px;
+  }
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+  }
+  .btn, select {
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 7px 12px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    font-family: var(--sans);
+  }
+  .btn:hover, select:hover {
+    border-color: var(--accent);
+  }
+  .btn.active {
+    background: rgba(110, 168, 254, 0.16);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px 18px;
+    margin-bottom: 18px;
+  }
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+    margin-bottom: 18px;
+  }
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+  }
+  .stat-label {
+    font-size: 0.78rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .stat-value {
+    font-size: 1.25rem;
+    font-weight: 650;
+    font-family: var(--mono);
+    margin-top: 4px;
+  }
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    font-size: 0.8rem;
+    font-family: var(--mono);
+    cursor: pointer;
+    user-select: none;
+    transition: opacity 0.15s;
+  }
+  .legend-item.off {
+    opacity: 0.38;
+  }
+  .legend-swatch {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .chart-wrap {
+    position: relative;
+    width: 100%;
+    overflow-x: auto;
+  }
+  svg.chart {
+    display: block;
+    width: 100%;
+    min-width: 720px;
+    height: auto;
+    font-family: var(--mono);
+  }
+  .tooltip {
+    position: fixed;
+    pointer-events: none;
+    background: #11131a;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 9px 11px;
+    font-size: 0.8rem;
+    font-family: var(--mono);
+    color: var(--text);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.45);
+    z-index: 100;
+    display: none;
+    white-space: nowrap;
+  }
+  .table-wrap {
+    overflow-x: auto;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.84rem;
+    font-family: var(--mono);
+  }
+  th, td {
+    text-align: left;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  th {
+    color: var(--muted);
+    font-weight: 600;
+    cursor: pointer;
+    user-select: none;
+  }
+  th:hover {
+    color: var(--text);
+  }
+  td.num, th.num {
+    text-align: right;
+  }
+  .delta-good { color: var(--good); }
+  .delta-bad { color: var(--bad); }
+  .empty-state {
+    text-align: center;
+    padding: 48px 20px;
+    color: var(--muted);
+  }
+  .drop-hint {
+    font-size: 0.8rem;
+    color: var(--muted);
+  }
+  input[type="file"] { display: none; }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <div>
+      <h1>Janet Benchmarks</h1>
+      <div class="subtitle">Execution time (min / mean / max) across Janet versions</div>
+    </div>
+    <div class="controls">
+      <button class="btn active" id="btnLog">Log₁₀ Scale</button>
+      <button class="btn" id="btnLinear">Linear Scale</button>
+      <select id="baselineSelect" title="Baseline version for relative comparison"></select>
+      <label class="btn" for="fileInput">Load .dat</label>
+      <input type="file" id="fileInput" accept=".dat,.txt">
+    </div>
+  </header>
+
+  <div class="stats-grid" id="statsGrid"></div>
+
+  <div class="card">
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:10px;">
+      <div class="legend" id="legend"></div>
+      <div style="display:flex; gap:6px;">
+        <button class="btn" id="btnAll">All</button>
+        <button class="btn" id="btnNone">None</button>
+      </div>
+    </div>
+    <div class="chart-wrap" id="chartWrap"></div>
+  </div>
+
+  <div class="card">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+      <strong>Benchmark Results</strong>
+      <span class="drop-hint">Tip: drag &amp; drop a <code>report.dat</code> file anywhere on this page</span>
+    </div>
+    <div class="table-wrap" id="tableWrap"></div>
+  </div>
+</div>
+
+<div class="tooltip" id="tooltip"></div>
+
+<script>
+const BENCHMARK_DATA = [{"version": "1.30.0_local", "index": 1, "benchmark": "aoc_2020_d15_p1", "min": 30, "max": 30, "mean": 30}, {"version": "1.30.0_local", "index": 2, "benchmark": "dict_words", "min": 3.0607743263244598, "max": 3.2050852775573699, "mean": 3.13759446144104}, {"version": "1.30.0_local", "index": 3, "benchmark": "hash_numbers", "min": 3.10750436782837, "max": 3.1154205799102801, "mean": 3.11195945739746}, {"version": "1.30.0_local", "index": 4, "benchmark": "hexagon_tuples", "min": 3.3863959312439, "max": 3.4286036491393999, "mean": 3.4107762177785199}, {"version": "1.30.0_local", "index": 5, "benchmark": "sort_random_numbers", "min": 14.658999204635601, "max": 14.8631994724274, "mean": 14.7782470385234}, {"version": "1.30.0_local", "index": 6, "benchmark": "table_with_float_keys", "min": 2.94996285438538, "max": 2.9992001056671098, "mean": 2.9761977593103999}, {"version": "1.30.0_local", "index": 7, "benchmark": "table_with_struct_keys", "min": 2.71007251739502, "max": 2.8379704952239999, "mean": 2.8012032773759601}, {"version": "1.30.0_local", "index": 8, "benchmark": "table_with_tuple_keys", "min": 2.70799589157104, "max": 2.8178551197052002, "mean": 2.7760802374945701}, {"version": "1.43.1_local", "index": 1, "benchmark": "aoc_2020_d15_p1", "min": 2.7339348793029798, "max": 2.7979719638824498, "mean": 2.7653505802154501}, {"version": "1.43.1_local", "index": 2, "benchmark": "dict_words", "min": 2.7715938091278098, "max": 2.7907669544220002, "mean": 2.78171038627625}, {"version": "1.43.1_local", "index": 3, "benchmark": "hash_numbers", "min": 2.7292776107788099, "max": 2.7791230678558301, "mean": 2.74986894925435}, {"version": "1.43.1_local", "index": 4, "benchmark": "hexagon_tuples", "min": 2.6392116546630899, "max": 2.6585927009582502, "mean": 2.6520319779713999}, {"version": "1.43.1_local", "index": 5, "benchmark": "sort_random_numbers", "min": 2.7968058586120601, "max": 2.8873054981231698, "mean": 2.8216735919316598}, {"version": "1.43.1_local", "index": 6, "benchmark": "table_with_float_keys", "min": 2.83250880241394, "max": 2.9248921871185298, "mean": 2.8957433700561501}, {"version": "1.43.1_local", "index": 7, "benchmark": "table_with_struct_keys", "min": 2.69935131072998, "max": 2.8170642852783199, "mean": 2.74503019120958}, {"version": "1.43.1_local", "index": 8, "benchmark": "table_with_tuple_keys", "min": 2.6822659969329798, "max": 2.7780580520629901, "mean": 2.7334522141350601}, {"version": "1.10.1_local", "index": 1, "benchmark": "aoc_2020_d15_p1", "min": 12.547964572906499, "max": 12.6452395915985, "mean": 12.608258565266899}, {"version": "1.10.1_local", "index": 2, "benchmark": "dict_words", "min": 3.3722307682037398, "max": 3.40756034851074, "mean": 3.3869063854217498}, {"version": "1.10.1_local", "index": 3, "benchmark": "hash_numbers", "min": 3.0917053222656201, "max": 3.13543677330017, "mean": 3.1188436349233002}, {"version": "1.10.1_local", "index": 4, "benchmark": "hexagon_tuples", "min": 12.429168224334701, "max": 12.581300973892199, "mean": 12.5084435939789}, {"version": "1.10.1_local", "index": 5, "benchmark": "sort_random_numbers", "min": 30, "max": 30, "mean": 30}, {"version": "1.10.1_local", "index": 6, "benchmark": "table_with_float_keys", "min": 3.1047046184539799, "max": 3.1834797859191899, "mean": 3.1284211079279598}, {"version": "1.10.1_local", "index": 7, "benchmark": "table_with_struct_keys", "min": 30, "max": 30, "mean": 30}, {"version": "1.10.1_local", "index": 8, "benchmark": "table_with_tuple_keys", "min": 30, "max": 30, "mean": 30}, {"version": "1.11.3_local", "index": 1, "benchmark": "aoc_2020_d15_p1", "min": 3.3064484596252401, "max": 3.3249952793121298, "mean": 3.3143512407938598}, {"version": "1.11.3_local", "index": 2, "benchmark": "dict_words", "min": 3.3998484611511199, "max": 3.46893262863159, "mean": 3.4344149430592901}, {"version": "1.11.3_local", "index": 3, "benchmark": "hash_numbers", "min": 3.0564985275268599, "max": 3.2151327133178702, "mean": 3.15458011627197}, {"version": "1.11.3_local", "index": 4, "benchmark": "hexagon_tuples", "min": 10.8234462738037, "max": 11.1482665538788, "mean": 10.932259877522799}, {"version": "1.11.3_local", "index": 5, "benchmark": "sort_random_numbers", "min": 14.255128383636499, "max": 14.4284701347351, "mean": 14.339839021364799}, {"version": "1.11.3_local", "index": 6, "benchmark": "table_with_float_keys", "min": 3.06107831001282, "max": 3.1180732250213601, "mean": 3.0946045319239301}, {"version": "1.11.3_local", "index": 7, "benchmark": "table_with_struct_keys", "min": 30, "max": 30, "mean": 30}, {"version": "1.11.3_local", "index": 8, "benchmark": "table_with_tuple_keys", "min": 30, "max": 30, "mean": 30}, {"version": "1.12.2_local", "index": 1, "benchmark": "aoc_2020_d15_p1", "min": 3.2899649143218999, "max": 3.3699567317962602, "mean": 3.3301322460174601}, {"version": "1.12.2_local", "index": 2, "benchmark": "dict_words", "min": 3.3760893344879199, "max": 3.4626977443695099, "mean": 3.4189643859863299}, {"version": "1.12.2_local", "index": 3, "benchmark": "hash_numbers", "min": 3.1769227981567401, "max": 3.1949303150177002, "mean": 3.18472854296366}, {"version": "1.12.2_local", "index": 4, "benchmark": "hexagon_tuples", "min": 11.546936273574801, "max": 11.7075650691986, "mean": 11.6015868981679}, {"version": "1.12.2_local", "index": 5, "benchmark": "sort_random_numbers", "min": 14.0008592605591, "max": 14.156067609787, "mean": 14.0929750204086}, {"version": "1.12.2_local", "index": 6, "benchmark": "table_with_float_keys", "min": 3.0635645389556898, "max": 3.0880157947540301, "mean": 3.0743408997853598}, {"version": "1.12.2_local", "index": 7, "benchmark": "table_with_struct_keys", "min": 30, "max": 30, "mean": 30}, {"version": "1.12.2_local", "index": 8, "benchmark": "table_with_tuple_keys", "min": 30, "max": 30, "mean": 30}, {"version": "1.14.2_local", "index": 1, "benchmark": "aoc_2020_d15_p1", "min": 2.8135287761688201, "max": 2.8797020912170401, "mean": 2.8458109696706102}, {"version": "1.14.2_local", "index": 2, "benchmark": "dict_words", "min": 3.4607806205749498, "max": 3.5068302154540998, "mean": 3.4781166712443001}, {"version": "1.14.2_local", "index": 3, "benchmark": "hash_numbers", "min": 30, "max": 30, "mean": 30}, {"version": "1.14.2_local", "index": 4, "benchmark": "hexagon_tuples", "min": 3.7162940502166699, "max": 3.7843821048736599, "mean": 3.7399092515309702}, {"version": "1.14.2_local", "index": 5, "benchmark": "sort_random_numbers", "min": 14.743966102600099, "max": 14.826726436614999, "mean": 14.803300857543899}, {"version": "1.14.2_local", "index": 6, "benchmark": "table_with_float_keys", "min": 3.2278959751129199, "max": 3.4031102657318102, "mean": 3.3275291124979698}, {"version": "1.14.2_local", "index": 7, "benchmark": "table_with_struct_keys", "min": 2.7527511119842498, "max": 2.8304798603057901, "mean": 2.7900859514872201}, {"version": "1.14.2_local", "index": 8, "benchmark": "table_with_tuple_keys", "min": 2.7687897682189901, "max": 2.82943534851074, "mean": 2.7973767916361498}, {"version": "1.15.5_local", "index": 1, "benchmark": "aoc_2020_d15_p1", "min": 3.2525832653045699, "max": 3.27275538444519, "mean": 3.2622311115264901}, {"version": "1.15.5_local", "index": 2, "benchmark": "dict_words", "min": 3.4122974872589098, "max": 3.4198973178863499, "mean": 3.4166148503621399}, {"version": "1.15.5_local", "index": 3, "benchmark": "hash_numbers", "min": 3.1146285533904998, "max": 3.1232743263244598, "mean": 3.1194902261098201}, {"version": "1.15.5_local", "index": 4, "benchmark": "hexagon_tuples", "min": 9.8469083309173602, "max": 9.8803722858429008, "mean": 9.8647367954254204}, {"version": "1.15.5_local", "index": 5, "benchmark": "sort_random_numbers", "min": 14.8036756515503, "max": 15.060871124267599, "mean": 14.9135748545329}, {"version": "1.15.5_local", "index": 6, "benchmark": "table_with_float_keys", "min": 3.0781395435333301, "max": 3.1235191822052002, "mean": 3.0999581019083702}, {"version": "1.15.5_local", "index": 7, "benchmark": "table_with_struct_keys", "min": 2.4684805870056201, "max": 2.8115432262420699, "mean": 2.5911844571431502}, {"version": "1.15.5_local", "index": 8, "benchmark": "table_with_tuple_keys", "min": 4.0679121017456099, "max": 30, "mean": 11.2140626226153}, {"version": "1.16.1_local", "index": 1, "benchmark": "aoc_2020_d15_p1", "min": 3.1924395561218302, "max": 3.2347459793090798, "mean": 3.2173509597778298}, {"version": "1.16.1_local", "index": 2, "benchmark": "dict_words", "min": 3.3901288509368901, "max": 3.4087502956390399, "mean": 3.4020451704661001}, {"version": "1.16.1_local", "index": 3, "benchmark": "hash_numbers", "min": 3.0771381855011, "max": 3.0896587371826199, "mean": 3.0852851072947201}, {"version": "1.16.1_local", "index": 4, "benchmark": "hexagon_tuples", "min": 9.8190441131591797, "max": 9.9420001506805402, "mean": 9.8935027917226197}, {"version": "1.16.1_local", "index": 5, "benchmark": "sort_random_numbers", "min": 14.559169292449999, "max": 14.7327737808228, "mean": 14.649734973907499}, {"version": "1.16.1_local", "index": 6, "benchmark": "table_with_float_keys", "min": 3.0151314735412602, "max": 3.1038665771484402, "mean": 3.0595797300338701}, {"version": "1.16.1_local", "index": 7, "benchmark": "table_with_struct_keys", "min": 2.4985864162445099, "max": 2.8022518157959002, "mean": 2.6108674473232698}, {"version": "1.16.1_local", "index": 8, "benchmark": "table_with_tuple_keys", "min": 3.97987580299377, "max": 30, "mean": 11.164972986493799}, {"version": "1.17.2_local", "index": 1, "benchmark": "aoc_2020_d15_p1", "min": 3.3597254753112802, "max": 3.4271082878112802, "mean": 3.3967808882395398}, {"version": "1.17.2_local", "index": 2, "benchmark": "dict_words", "min": 3.0582695007324201, "max": 3.20042777061462, "mean": 3.1421758333841998}, {"version": "1.17.2_local", "index": 3, "benchmark": "hash_numbers", "min": 3.1414024829864502, "max": 3.1872901916503902, "mean": 3.1630417505900099}, {"version": "1.17.2_local", "index": 4, "benchmark": "hexagon_tuples", "min": 10.1985981464386, "max": 10.2380075454712, "mean": 10.2237820625305}, {"version": "1.17.2_local", "index": 5, "benchmark": "sort_random_numbers", "min": 14.858429908752401, "max": 15.047774553299, "mean": 14.942663470904}, {"version": "1.17.2_local", "index": 6, "benchmark": "table_with_float_keys", "min": 2.9486420154571502, "max": 2.9981784820556601, "mean": 2.9722602367401101}, {"version": "1.17.2_local", "index": 7, "benchmark": "table_with_struct_keys", "min": 2.4577622413635298, "max": 2.81525826454163, "mean": 2.5786148177252901}, {"version": "1.17.2_local", "index": 8, "benchmark": "table_with_tuple_keys", "min": 4.1486728191375697, "max": 30, "mean": 11.349891083581101}, {"version": "1.18.1_local", "index": 1, "benchmark": "aoc_2020_d15_p1", "min": 3.38077020645142, "max": 3.45988941192627, "mean": 3.4237235387166298}, {"version": "1.18.1_local", "index": 2, "benchmark": "dict_words", "min": 3.12202024459839, "max": 3.1805193424224898, "mean": 3.1535493532816599}, {"version": "1.18.1_local", "index": 3, "benchmark": "hash_numbers", "min": 3.1614251136779798, "max": 3.1836881637573202, "mean": 3.1736785570780399}, {"version": "1.18.1_local", "index": 4, "benchmark": "hexagon_tuples", "min": 10.517514944076501, "max": 10.564071893692001, "mean": 10.543794075648}, {"version": "1.18.1_local", "index": 5, "benchmark": "sort_random_numbers", "min": 15.0067965984344, "max": 15.207797050476101, "mean": 15.068028807640101}, {"version": "1.18.1_local", "index": 6, "benchmark": "table_with_float_keys", "min": 2.9778368473053001, "max": 3.06343293190002, "mean": 3.0206384261449202}, {"version": "1.18.1_local", "index": 7, "benchmark": "table_with_struct_keys", "min": 2.43814325332642, "max": 2.9132950305938698, "mean": 2.65866928630405}, {"version": "1.18.1_local", "index": 8, "benchmark": "table_with_tuple_keys", "min": 4.2502806186675999, "max": 30, "mean": 11.5809208665575}, {"version": "1.19.2_local", "index": 1, "benchmark": "aoc_2020_d15_p1", "min": 3.2787406444549601, "max": 3.3053820133209202, "mean": 3.29509202639262}, {"version": "1.19.2_local", "index": 2, "benchmark": "dict_words", "min": 3.0489470958709699, "max": 3.0933635234832799, "mean": 3.0765937964121499}, {"version": "1.19.2_local", "index": 3, "benchmark": "hash_numbers", "min": 3.0981295108795202, "max": 3.1266274452209499, "mean": 3.10775748888652}, {"version": "1.19.2_local", "index": 4, "benchmark": "hexagon_tuples", "min": 3.9232819080352801, "max": 3.97720503807068, "mean": 3.9461590449015298}, {"version": "1.19.2_local", "index": 5, "benchmark": "sort_random_numbers", "min": 14.6817054748535, "max": 14.8347334861755, "mean": 14.729831178983099}, {"version": "1.19.2_local", "index": 6, "benchmark": "table_with_float_keys", "min": 2.92337250709534, "max": 2.9971954822540301, "mean": 2.9599725405375201}, {"version": "1.19.2_local", "index": 7, "benchmark": "table_with_struct_keys", "min": 2.4382882118225102, "max": 2.8163688182830802, "mean": 2.5740525987413201}, {"version": "1.19.2_local", "index": 8, "benchmark": "table_with_tuple_keys", "min": 2.6447329521179199, "max": 3.0005533695220898, "mean": 2.80230869187249}, {"version": "1.20.0_local", "index": 1, "benchmark": "aoc_2020_d15_p1", "min": 30, "max": 30, "mean": 30}, {"version": "1.20.0_local", "index": 2, "benchmark": "dict_words", "min": 3.0201270580291699, "max": 3.0331370830535902, "mean": 3.0276620388031001}, {"version": "1.20.0_local", "index": 3, "benchmark": "hash_numbers", "min": 3.00731372833252, "max": 3.0371432304382302, "mean": 3.0239092508951799}, {"version": "1.20.0_local", "index": 4, "benchmark": "hexagon_tuples", "min": 3.6224730014800999, "max": 3.6925823688507098, "mean": 3.65307418505351}, {"version": "1.20.0_local", "index": 5, "benchmark": "sort_random_numbers", "min": 15.131323814392101, "max": 15.2633047103882, "mean": 15.1837152242661}, {"version": "1.20.0_local", "index": 6, "benchmark": "table_with_float_keys", "min": 2.9249804019928001, "max": 2.9986906051635702, "mean": 2.9649728139241498}, {"version": "1.20.0_local", "index": 7, "benchmark": "table_with_struct_keys", "min": 2.77267217636108, "max": 2.8121025562286399, "mean": 2.7927826775444902}, {"version": "1.20.0_local", "index": 8, "benchmark": "table_with_tuple_keys", "min": 2.7625153064727801, "max": 2.8279983997345002, "mean": 2.7853673299153598}, {"version": "1.21.2_local", "index": 1, "benchmark": "aoc_2020_d15_p1", "min": 30, "max": 30, "mean": 30}, {"version": "1.21.2_local", "index": 2, "benchmark": "dict_words", "min": 3.0161035060882599, "max": 3.1910662651061998, "mean": 3.11765011151632}, {"version": "1.21.2_local", "index": 3, "benchmark": "hash_numbers", "min": 3.01303267478943, "max": 3.0921208858489999, "mean": 3.0571663379669198}, {"version": "1.21.2_local", "index": 4, "benchmark": "hexagon_tuples", "min": 3.60547947883606, "max": 3.6639547348022501, "mean": 3.6352113087971998}, {"version": "1.21.2_local", "index": 5, "benchmark": "sort_random_numbers", "min": 14.930496931076, "max": 15.076709508895901, "mean": 15.0096083879471}, {"version": "1.21.2_local", "index": 6, "benchmark": "table_with_float_keys", "min": 2.9647386074066202, "max": 3.01525783538818, "mean": 2.99514098962148}, {"version": "1.21.2_local", "index": 7, "benchmark": "table_with_struct_keys", "min": 2.63889837265015, "max": 2.8238372802734402, "mean": 2.77714840571086}, {"version": "1.21.2_local", "index": 8, "benchmark": "table_with_tuple_keys", "min": 2.64116311073303, "max": 2.8170983791351301, "mean": 2.7585832277933799}, {"version": "1.22.0_local", "index": 1, "benchmark": "aoc_2020_d15_p1", "min": 30, "max": 30, "mean": 30}, {"version": "1.22.0_local", "index": 2, "benchmark": "dict_words", "min": 2.82547163963318, "max": 3.0357129573821999, "mean": 2.95682271321615}, {"version": "1.22.0_local", "index": 3, "benchmark": "hash_numbers", "min": 3.0925362110137899, "max": 3.1816780567169198, "mean": 3.1350252628326398}, {"version": "1.22.0_local", "index": 4, "benchmark": "hexagon_tuples", "min": 3.6605641841888401, "max": 3.6972801685333301, "mean": 3.6786576906840001}, {"version": "1.22.0_local", "index": 5, "benchmark": "sort_random_numbers", "min": 14.842814207077, "max": 15.022140026092501, "mean": 14.910576065381401}, {"version": "1.22.0_local", "index": 6, "benchmark": "table_with_float_keys", "min": 3.0264627933502202, "max": 3.0553321838378902, "mean": 3.0413273572921802}, {"version": "1.22.0_local", "index": 7, "benchmark": "table_with_struct_keys", "min": 2.7719712257385298, "max": 2.8095386028289799, "mean": 2.7883514563242602}, {"version": "1.22.0_local", "index": 8, "benchmark": "table_with_tuple_keys", "min": 2.7617485523223899, "max": 2.8232667446136501, "mean": 2.8032627635531999}, {"version": "1.23.0_local", "index": 1, "benchmark": "aoc_2020_d15_p1", "min": 30, "max": 30, "mean": 30}, {"version": "1.23.0_local", "index": 2, "benchmark": "dict_words", "min": 2.9336421489715598, "max": 3.0395948886871298, "mean": 2.9984823067983002}, {"version": "1.23.0_local", "index": 3, "benchmark": "hash_numbers", "min": 3.0901002883911102, "max": 3.1119861602783199, "mean": 3.1001563072204599}, {"version": "1.23.0_local", "index": 4, "benchmark": "hexagon_tuples", "min": 3.6957190036773699, "max": 3.7715213298797599, "mean": 3.7264139652252202}, {"version": "1.23.0_local", "index": 5, "benchmark": "sort_random_numbers", "min": 15.079498767852799, "max": 15.2633957862854, "mean": 15.1550966501236}, {"version": "1.23.0_local", "index": 6, "benchmark": "table_with_float_keys", "min": 2.9889051914215101, "max": 3.03315353393555, "mean": 3.0095587571462001}, {"version": "1.23.0_local", "index": 7, "benchmark": "table_with_struct_keys", "min": 2.7548799514770499, "max": 2.8398096561431898, "mean": 2.8054745992024701}, {"version": "1.23.0_local", "index": 8, "benchmark": "table_with_tuple_keys", "min": 2.7755393981933598, "max": 2.8081979751586901, "mean": 2.7954587671491802}, {"version": "1.24.1_local", "index": 1, "benchmark": "aoc_2020_d15_p1", "min": 30, "max": 30, "mean": 30}, {"version": "1.24.1_local", "index": 2, "benchmark": "dict_words", "min": 2.95531058311462, "max": 3.0361413955688499, "mean": 2.9940057595570901}, {"version": "1.24.1_local", "index": 3, "benchmark": "hash_numbers", "min": 3.0209884643554701, "max": 3.1253242492675799, "mean": 3.0789484182993601}, {"version": "1.24.1_local", "index": 4, "benchmark": "hexagon_tuples", "min": 3.6645991802215598, "max": 3.7311103343963601, "mean": 3.69989864031474}, {"version": "1.24.1_local", "index": 5, "benchmark": "sort_random_numbers", "min": 15.101639986038199, "max": 15.194017648696899, "mean": 15.1572926441828}, {"version": "1.24.1_local", "index": 6, "benchmark": "table_with_float_keys", "min": 3.03088402748108, "max": 3.0686872005462602, "mean": 3.0524117549260499}, {"version": "1.24.1_local", "index": 7, "benchmark": "table_with_struct_keys", "min": 2.6926579475402801, "max": 2.84823775291443, "mean": 2.8158965640597899}, {"version": "1.24.1_local", "index": 8, "benchmark": "table_with_tuple_keys", "min": 2.7274715900421098, "max": 2.81882548332214, "mean": 2.77017203966777}, {"version": "1.25.1_local", "index": 1, "benchmark": "aoc_2020_d15_p1", "min": 30, "max": 30, "mean": 30}, {"version": "1.25.1_local", "index": 2, "benchmark": "dict_words", "min": 3.0167756080627401, "max": 3.1901211738586399, "mean": 3.0780745347340899}, {"version": "1.25.1_local", "index": 3, "benchmark": "hash_numbers", "min": 3.0461993217468302, "max": 3.1291043758392298, "mean": 3.0999854405720999}, {"version": "1.25.1_local", "index": 4, "benchmark": "hexagon_tuples", "min": 3.62179732322693, "max": 3.6676661968231201, "mean": 3.6385999520619698}, {"version": "1.25.1_local", "index": 5, "benchmark": "sort_random_numbers", "min": 15.3393595218658, "max": 15.5235643386841, "mean": 15.3789090315501}, {"version": "1.25.1_local", "index": 6, "benchmark": "table_with_float_keys", "min": 2.9875445365905802, "max": 3.06744360923767, "mean": 3.0121664206186902}, {"version": "1.25.1_local", "index": 7, "benchmark": "table_with_struct_keys", "min": 2.7708089351654102, "max": 2.82636570930481, "mean": 2.7985799312591602}, {"version": "1.25.1_local", "index": 8, "benchmark": "table_with_tuple_keys", "min": 2.7527444362640399, "max": 2.83900094032288, "mean": 2.7982819080352801}, {"version": "1.26.0_local", "index": 1, "benchmark": "aoc_2020_d15_p1", "min": 30, "max": 30, "mean": 30}, {"version": "1.26.0_local", "index": 2, "benchmark": "dict_words", "min": 3.2628450393676798, "max": 3.3187005519866899, "mean": 3.28233663241069}, {"version": "1.26.0_local", "index": 3, "benchmark": "hash_numbers", "min": 3.0934090614318799, "max": 3.1248621940612802, "mean": 3.1074829896291098}, {"version": "1.26.0_local", "index": 4, "benchmark": "hexagon_tuples", "min": 3.66281962394714, "max": 3.7154734134674099, "mean": 3.6850664615631099}, {"version": "1.26.0_local", "index": 5, "benchmark": "sort_random_numbers", "min": 14.9677934646606, "max": 15.0149672031403, "mean": 14.9927050669988}, {"version": "1.26.0_local", "index": 6, "benchmark": "table_with_float_keys", "min": 3.0274009704589799, "max": 3.1450080871582, "mean": 3.0570777257283499}, {"version": "1.26.0_local", "index": 7, "benchmark": "table_with_struct_keys", "min": 2.75542068481445, "max": 2.87288522720337, "mean": 2.8181975417667}, {"version": "1.26.0_local", "index": 8, "benchmark": "table_with_tuple_keys", "min": 2.7745318412780802, "max": 2.8170807361602801, "mean": 2.78776876131694}, {"version": "1.27.0_local", "index": 1, "benchmark": "aoc_2020_d15_p1", "min": 30, "max": 30, "mean": 30}, {"version": "1.27.0_local", "index": 2, "benchmark": "dict_words", "min": 3.0537378787994398, "max": 3.19456958770752, "mean": 3.1258514722188302}, {"version": "1.27.0_local", "index": 3, "benchmark": "hash_numbers", "min": 3.1198482513427699, "max": 3.14826488494873, "mean": 3.1326560974121098}, {"version": "1.27.0_local", "index": 4, "benchmark": "hexagon_tuples", "min": 3.69379782676697, "max": 3.7109205722808798, "mean": 3.7051308155059801}, {"version": "1.27.0_local", "index": 5, "benchmark": "sort_random_numbers", "min": 14.936432838439901, "max": 15.253646373748801, "mean": 15.141475319862399}, {"version": "1.27.0_local", "index": 6, "benchmark": "table_with_float_keys", "min": 3.04369020462036, "max": 3.1513924598693799, "mean": 3.0826183160146101}, {"version": "1.27.0_local", "index": 7, "benchmark": "table_with_struct_keys", "min": 2.7352833747863801, "max": 2.8414371013641402, "mean": 2.7765504519144701}, {"version": "1.27.0_local", "index": 8, "benchmark": "table_with_tuple_keys", "min": 2.7542555332183798, "max": 3.3929357528686501, "mean": 3.02779406971402}, {"version": "1.28.0_local", "index": 1, "benchmark": "aoc_2020_d15_p1", "min": 30, "max": 30, "mean": 30}, {"version": "1.28.0_local", "index": 2, "benchmark": "dict_words", "min": 2.9513103961944598, "max": 3.2090311050414999, "mean": 3.05440775553385}, {"version": "1.28.0_local", "index": 3, "benchmark": "hash_numbers", "min": 3.0879485607147199, "max": 3.1266062259674099, "mean": 3.10700265566508}, {"version": "1.28.0_local", "index": 4, "benchmark": "hexagon_tuples", "min": 4.0180158615112296, "max": 4.0947520732879603, "mean": 4.04638695716858}, {"version": "1.28.0_local", "index": 5, "benchmark": "sort_random_numbers", "min": 16.222111463546799, "max": 18.4580030441284, "mean": 17.168136715888998}, {"version": "1.28.0_local", "index": 6, "benchmark": "table_with_float_keys", "min": 3.0227348804473899, "max": 3.0993301868438698, "mean": 3.0591184695561702}, {"version": "1.28.0_local", "index": 7, "benchmark": "table_with_struct_keys", "min": 2.7712314128875701, "max": 2.92225241661072, "mean": 2.8506320052676699}, {"version": "1.28.0_local", "index": 8, "benchmark": "table_with_tuple_keys", "min": 2.8063106536865199, "max": 3.5446522235870401, "mean": 3.0204310946994402}, {"version": "1.29.1_local", "index": 1, "benchmark": "aoc_2020_d15_p1", "min": 30, "max": 30, "mean": 30}, {"version": "1.29.1_local", "index": 2, "benchmark": "dict_words", "min": 2.9347398281097399, "max": 3.1229689121246298, "mean": 3.0244796276092498}, {"version": "1.29.1_local", "index": 3, "benchmark": "hash_numbers", "min": 3.11308622360229, "max": 3.2272212505340598, "mean": 3.1851010322570801}, {"version": "1.29.1_local", "index": 4, "benchmark": "hexagon_tuples", "min": 3.4986269474029501, "max": 3.60073614120483, "mean": 3.5381913185119598}, {"version": "1.29.1_local", "index": 5, "benchmark": "sort_random_numbers", "min": 15.2233483791351, "max": 17.101540327072101, "mean": 15.7226432959239}, {"version": "1.29.1_local", "index": 6, "benchmark": "table_with_float_keys", "min": 2.9457652568817099, "max": 3.0363965034484899, "mean": 3.0062721570332802}, {"version": "1.29.1_local", "index": 7, "benchmark": "table_with_struct_keys", "min": 2.79323053359985, "max": 2.8470909595489502, "mean": 2.8212894598643001}, {"version": "1.29.1_local", "index": 8, "benchmark": "table_with_tuple_keys", "min": 2.7977952957153298, "max": 2.9302005767822301, "mean": 2.8642680909898499}, {"version": "1.31.0_local", "index": 1, "benchmark": "aoc_2020_d15_p1", "min": 30, "max": 30, "mean": 30}, {"version": "1.31.0_local", "index": 2, "benchmark": "dict_words", "min": 3.0512554645538299, "max": 3.1953368186950701, "mean": 3.14360380172729}, {"version": "1.31.0_local", "index": 3, "benchmark": "hash_numbers", "min": 3.0779445171356201, "max": 3.1818363666534402, "mean": 3.1318216323852499}, {"version": "1.31.0_local", "index": 4, "benchmark": "hexagon_tuples", "min": 2.7036101818084699, "max": 2.7245821952819802, "mean": 2.7170249621073399}, {"version": "1.31.0_local", "index": 5, "benchmark": "sort_random_numbers", "min": 3.0969192981720002, "max": 3.21754121780396, "mean": 3.1498640378316201}, {"version": "1.31.0_local", "index": 6, "benchmark": "table_with_float_keys", "min": 2.9419739246368399, "max": 3.0685217380523699, "mean": 3.0265382130940801}, {"version": "1.31.0_local", "index": 7, "benchmark": "table_with_struct_keys", "min": 2.8260450363159202, "max": 2.8935065269470202, "mean": 2.8589861657884401}, {"version": "1.31.0_local", "index": 8, "benchmark": "table_with_tuple_keys", "min": 2.78948998451233, "max": 2.9045007228851301, "mean": 2.8327725728352902}, {"version": "1.32.1_local", "index": 1, "benchmark": "aoc_2020_d15_p1", "min": 30, "max": 30, "mean": 30}, {"version": "1.32.1_local", "index": 2, "benchmark": "dict_words", "min": 3.0017712116241499, "max": 3.16767358779907, "mean": 3.0738953749338802}, {"version": "1.32.1_local", "index": 3, "benchmark": "hash_numbers", "min": 3.09907054901123, "max": 3.1366617679595898, "mean": 3.1148107051849401}, {"version": "1.32.1_local", "index": 4, "benchmark": "hexagon_tuples", "min": 2.7075223922729501, "max": 2.7292718887329102, "mean": 2.7189355691274}, {"version": "1.32.1_local", "index": 5, "benchmark": "sort_random_numbers", "min": 3.0855147838592498, "max": 3.1383254528045699, "mean": 3.1067804892857902}, {"version": "1.32.1_local", "index": 6, "benchmark": "table_with_float_keys", "min": 2.9696955680847199, "max": 3.0410540103912398, "mean": 2.9970089594523102}, {"version": "1.32.1_local", "index": 7, "benchmark": "table_with_struct_keys", "min": 2.7321808338165301, "max": 2.8803024291992201, "mean": 2.8502176072862402}, {"version": "1.32.1_local", "index": 8, "benchmark": "table_with_tuple_keys", "min": 2.7691004276275599, "max": 2.8309123516082799, "mean": 2.7968117660946299}, {"version": "1.33.0_local", "index": 1, "benchmark": "aoc_2020_d15_p1", "min": 30, "max": 30, "mean": 30}, {"version": "1.33.0_local", "index": 2, "benchmark": "dict_words", "min": 2.9622712135314901, "max": 3.0704290866851802, "mean": 3.0015293757120798}, {"version": "1.33.0_local", "index": 3, "benchmark": "hash_numbers", "min": 3.12034392356873, "max": 3.1364758014678999, "mean": 3.1277193228403699}, {"version": "1.33.0_local", "index": 4, "benchmark": "hexagon_tuples", "min": 2.67108249664307, "max": 2.7091379165649401, "mean": 2.6853499412536599}, {"version": "1.33.0_local", "index": 5, "benchmark": "sort_random_numbers", "min": 3.0684380531311, "max": 3.105135679245, "mean": 3.0799864133199102}, {"version": "1.33.0_local", "index": 6, "benchmark": "table_with_float_keys", "min": 2.9545035362243701, "max": 2.99687647819519, "mean": 2.9768770933151201}, {"version": "1.33.0_local", "index": 7, "benchmark": "table_with_struct_keys", "min": 2.78733229637146, "max": 2.8880369663238499, "mean": 2.8399112224578902}, {"version": "1.33.0_local", "index": 8, "benchmark": "table_with_tuple_keys", "min": 2.7368068695068399, "max": 2.7983820438385001, "mean": 2.7732730441623299}, {"version": "1.34.0_local", "index": 1, "benchmark": "aoc_2020_d15_p1", "min": 30, "max": 30, "mean": 30}, {"version": "1.34.0_local", "index": 2, "benchmark": "dict_words", "min": 3.2600719928741499, "max": 3.3106486797332799, "mean": 3.287752866745}, {"version": "1.34.0_local", "index": 3, "benchmark": "hash_numbers", "min": 3.1027891635894802, "max": 3.1054172515869101, "mean": 3.1038280328114798}, {"version": "1.34.0_local", "index": 4, "benchmark": "hexagon_tuples", "min": 2.6905498504638699, "max": 2.7755930423736599, "mean": 2.72166228294373}, {"version": "1.34.0_local", "index": 5, "benchmark": "sort_random_numbers", "min": 3.0756044387817401, "max": 3.10382175445557, "mean": 3.0872159798940002}, {"version": "1.34.0_local", "index": 6, "benchmark": "table_with_float_keys", "min": 2.98290920257568, "max": 3.00658130645752, "mean": 2.99627757072449}, {"version": "1.34.0_local", "index": 7, "benchmark": "table_with_struct_keys", "min": 2.75135278701782, "max": 2.8485970497131299, "mean": 2.8096880118052199}, {"version": "1.34.0_local", "index": 8, "benchmark": "table_with_tuple_keys", "min": 2.6470184326171902, "max": 2.8232829570770299, "mean": 2.7821924951341401}, {"version": "1.35.2_local", "index": 1, "benchmark": "aoc_2020_d15_p1", "min": 30, "max": 30, "mean": 30}, {"version": "1.35.2_local", "index": 2, "benchmark": "dict_words", "min": 2.99492216110229, "max": 3.0565600395202601, "mean": 3.0350579420725499}, {"version": "1.35.2_local", "index": 3, "benchmark": "hash_numbers", "min": 3.0776903629303001, "max": 3.11071825027466, "mean": 3.0942781766255698}, {"version": "1.35.2_local", "index": 4, "benchmark": "hexagon_tuples", "min": 2.68156170845032, "max": 2.7133479118347199, "mean": 2.69746462504069}, {"version": "1.35.2_local", "index": 5, "benchmark": "sort_random_numbers", "min": 3.0872824192047101, "max": 3.1259324550628702, "mean": 3.1026204427083299}, {"version": "1.35.2_local", "index": 6, "benchmark": "table_with_float_keys", "min": 2.9665446281433101, "max": 2.9979274272918701, "mean": 2.98703555266062}, {"version": "1.35.2_local", "index": 7, "benchmark": "table_with_struct_keys", "min": 2.79206418991089, "max": 2.86616134643555, "mean": 2.8305855592091902}, {"version": "1.35.2_local", "index": 8, "benchmark": "table_with_tuple_keys", "min": 2.7438061237335201, "max": 2.81186819076538, "mean": 2.7714789443545902}, {"version": "1.36.0_local", "index": 1, "benchmark": "aoc_2020_d15_p1", "min": 30, "max": 30, "mean": 30}, {"version": "1.36.0_local", "index": 2, "benchmark": "dict_words", "min": 2.97980761528015, "max": 3.0306229591369598, "mean": 3.0079127947489401}, {"version": "1.36.0_local", "index": 3, "benchmark": "hash_numbers", "min": 3.1099722385406499, "max": 3.2328667640686, "mean": 3.1750704447428402}, {"version": "1.36.0_local", "index": 4, "benchmark": "hexagon_tuples", "min": 2.7051084041595499, "max": 2.72821712493896, "mean": 2.71849362055461}, {"version": "1.36.0_local", "index": 5, "benchmark": "sort_random_numbers", "min": 3.09355616569519, "max": 3.1532621383667001, "mean": 3.1078032255172698}, {"version": "1.36.0_local", "index": 6, "benchmark": "table_with_float_keys", "min": 2.9884443283081099, "max": 3.09475445747375, "mean": 3.0554121732711801}, {"version": "1.36.0_local", "index": 7, "benchmark": "table_with_struct_keys", "min": 2.8290815353393599, "max": 2.8621177673339799, "mean": 2.85224400626289}, {"version": "1.36.0_local", "index": 8, "benchmark": "table_with_tuple_keys", "min": 2.8185694217681898, "max": 2.8759632110595699, "mean": 2.83937830395169}, {"version": "1.37.1_local", "index": 1, "benchmark": "aoc_2020_d15_p1", "min": 30, "max": 30, "mean": 30}, {"version": "1.37.1_local", "index": 2, "benchmark": "dict_words", "min": 2.9162642955779998, "max": 2.9929563999175999, "mean": 2.9514123598734501}, {"version": "1.37.1_local", "index": 3, "benchmark": "hash_numbers", "min": 3.1548588275909402, "max": 3.1873726844787602, "mean": 3.17498358090719}, {"version": "1.37.1_local", "index": 4, "benchmark": "hexagon_tuples", "min": 2.7310595512390101, "max": 2.7432489395141602, "mean": 2.73645265897115}, {"version": "1.37.1_local", "index": 5, "benchmark": "sort_random_numbers", "min": 3.0899274349212602, "max": 3.1243989467620801, "mean": 3.10766426722209}, {"version": "1.37.1_local", "index": 6, "benchmark": "table_with_float_keys", "min": 2.99187231063843, "max": 3.0568387508392298, "mean": 3.0233188072840398}, {"version": "1.37.1_local", "index": 7, "benchmark": "table_with_struct_keys", "min": 2.7304673194885298, "max": 2.8871419429779102, "mean": 2.8448207113477899}, {"version": "1.37.1_local", "index": 8, "benchmark": "table_with_tuple_keys", "min": 2.7125868797302202, "max": 2.8760955333709699, "mean": 2.8140380117628299}, {"version": "1.38.0_local", "index": 1, "benchmark": "aoc_2020_d15_p1", "min": 30, "max": 30, "mean": 30}, {"version": "1.38.0_local", "index": 2, "benchmark": "dict_words", "min": 2.9494082927703902, "max": 3.0467369556427002, "mean": 2.9916829268137599}, {"version": "1.38.0_local", "index": 3, "benchmark": "hash_numbers", "min": 3.1255459785461399, "max": 3.1455993652343799, "mean": 3.13693022727966}, {"version": "1.38.0_local", "index": 4, "benchmark": "hexagon_tuples", "min": 2.7247514724731401, "max": 2.7527799606323202, "mean": 2.73903489112854}, {"version": "1.38.0_local", "index": 5, "benchmark": "sort_random_numbers", "min": 3.0727081298828098, "max": 3.1103053092956499, "mean": 3.09182771046956}, {"version": "1.38.0_local", "index": 6, "benchmark": "table_with_float_keys", "min": 2.9675433635711701, "max": 3.05128693580627, "mean": 3.0160438219706198}, {"version": "1.38.0_local", "index": 7, "benchmark": "table_with_struct_keys", "min": 2.73184370994568, "max": 2.8302788734436, "mean": 2.7739807764689099}, {"version": "1.38.0_local", "index": 8, "benchmark": "table_with_tuple_keys", "min": 2.7738182544708301, "max": 2.8363025188446001, "mean": 2.7999038166469998}, {"version": "1.39.1_local", "index": 1, "benchmark": "aoc_2020_d15_p1", "min": 30, "max": 30, "mean": 30}, {"version": "1.39.1_local", "index": 2, "benchmark": "dict_words", "min": 3.23017477989197, "max": 3.2754712104797399, "mean": 3.2565916379292799}, {"version": "1.39.1_local", "index": 3, "benchmark": "hash_numbers", "min": 3.0787513256072998, "max": 3.1449978351593, "mean": 3.1216818491617802}, {"version": "1.39.1_local", "index": 4, "benchmark": "hexagon_tuples", "min": 2.7958621978759801, "max": 2.83112668991089, "mean": 2.8142752647399898}, {"version": "1.39.1_local", "index": 5, "benchmark": "sort_random_numbers", "min": 3.1229715347289999, "max": 3.7847645282745401, "mean": 3.24173669020335}, {"version": "1.39.1_local", "index": 6, "benchmark": "table_with_float_keys", "min": 3.0116438865661599, "max": 3.0394206047058101, "mean": 3.0237434705098498}, {"version": "1.39.1_local", "index": 7, "benchmark": "table_with_struct_keys", "min": 2.64678883552551, "max": 2.8363599777221702, "mean": 2.77449901898702}, {"version": "1.39.1_local", "index": 8, "benchmark": "table_with_tuple_keys", "min": 2.6875674724578902, "max": 2.8307120800018302, "mean": 2.79274768299527}, {"version": "1.40.1_local", "index": 1, "benchmark": "aoc_2020_d15_p1", "min": 30, "max": 30, "mean": 30}, {"version": "1.40.1_local", "index": 2, "benchmark": "dict_words", "min": 2.95002365112305, "max": 3.0072324275970499, "mean": 2.9741651217142699}, {"version": "1.40.1_local", "index": 3, "benchmark": "hash_numbers", "min": 3.12746357917786, "max": 3.14814376831055, "mean": 3.1358053684234601}, {"version": "1.40.1_local", "index": 4, "benchmark": "hexagon_tuples", "min": 2.7654547691345202, "max": 2.77698755264282, "mean": 2.7717411518096902}, {"version": "1.40.1_local", "index": 5, "benchmark": "sort_random_numbers", "min": 3.1333057880401598, "max": 3.1584932804107702, "mean": 3.1423480908075998}, {"version": "1.40.1_local", "index": 6, "benchmark": "table_with_float_keys", "min": 2.9973115921020499, "max": 3.03511714935303, "mean": 3.0203049182891801}, {"version": "1.40.1_local", "index": 7, "benchmark": "table_with_struct_keys", "min": 2.71951127052307, "max": 2.8108549118042001, "mean": 2.7744712299770802}, {"version": "1.40.1_local", "index": 8, "benchmark": "table_with_tuple_keys", "min": 2.7791190147399898, "max": 2.8403611183166499, "mean": 2.80011992984348}, {"version": "1.41.0-dev_local", "index": 1, "benchmark": "aoc_2020_d15_p1", "min": 2.7639298439025901, "max": 2.78155589103699, "mean": 2.7731030782063799}, {"version": "1.41.0-dev_local", "index": 2, "benchmark": "dict_words", "min": 2.9750599861145002, "max": 3.0808415412902801, "mean": 3.01514140764872}, {"version": "1.41.0-dev_local", "index": 3, "benchmark": "hash_numbers", "min": 3.1341843605041499, "max": 3.2174868583679199, "mean": 3.1859896183013898}, {"version": "1.41.0-dev_local", "index": 4, "benchmark": "hexagon_tuples", "min": 2.75010085105896, "max": 2.8233067989349401, "mean": 2.77939057350159}, {"version": "1.41.0-dev_local", "index": 5, "benchmark": "sort_random_numbers", "min": 3.1253402233123802, "max": 3.19515800476074, "mean": 3.1502226193745901}, {"version": "1.41.0-dev_local", "index": 6, "benchmark": "table_with_float_keys", "min": 3.0555834770202601, "max": 3.0817968845367401, "mean": 3.07225302855174}, {"version": "1.41.0-dev_local", "index": 7, "benchmark": "table_with_struct_keys", "min": 2.7323915958404501, "max": 2.79705739021301, "mean": 2.76443134413825}, {"version": "1.41.0-dev_local", "index": 8, "benchmark": "table_with_tuple_keys", "min": 2.7844264507293701, "max": 2.8654651641845699, "mean": 2.8271186351776101}, {"version": "1.41.1_local", "index": 1, "benchmark": "aoc_2020_d15_p1", "min": 2.7746944427490199, "max": 2.79422903060913, "mean": 2.7848351001739502}, {"version": "1.41.1_local", "index": 2, "benchmark": "dict_words", "min": 3.0699717998504599, "max": 3.0956797599792498, "mean": 3.0803309281667102}, {"version": "1.41.1_local", "index": 3, "benchmark": "hash_numbers", "min": 3.1550855636596702, "max": 3.2095003128051798, "mean": 3.1779123942057299}, {"version": "1.41.1_local", "index": 4, "benchmark": "hexagon_tuples", "min": 2.7308042049407999, "max": 2.76833939552307, "mean": 2.7459272543589299}, {"version": "1.41.1_local", "index": 5, "benchmark": "sort_random_numbers", "min": 3.1221981048584002, "max": 3.2142789363861102, "mean": 3.1659770409266201}, {"version": "1.41.1_local", "index": 6, "benchmark": "table_with_float_keys", "min": 3.0338819026946999, "max": 3.0787618160247798, "mean": 3.0604371229807499}, {"version": "1.41.1_local", "index": 7, "benchmark": "table_with_struct_keys", "min": 2.7200796604156499, "max": 2.7812304496765101, "mean": 2.7485108375549299}, {"version": "1.41.1_local", "index": 8, "benchmark": "table_with_tuple_keys", "min": 2.7577252388000502, "max": 2.8601768016815199, "mean": 2.8049637476603202}, {"version": "1.41.2_local", "index": 1, "benchmark": "aoc_2020_d15_p1", "min": 2.7247550487518302, "max": 2.77850365638733, "mean": 2.7565340995788601}, {"version": "1.41.2_local", "index": 2, "benchmark": "dict_words", "min": 3.0257859230041499, "max": 3.0988011360168501, "mean": 3.0554822285970098}, {"version": "1.41.2_local", "index": 3, "benchmark": "hash_numbers", "min": 3.2379584312439, "max": 3.2476239204406698, "mean": 3.2433385848999001}, {"version": "1.41.2_local", "index": 4, "benchmark": "hexagon_tuples", "min": 2.7637882232665998, "max": 2.80542659759521, "mean": 2.7902256647745798}, {"version": "1.41.2_local", "index": 5, "benchmark": "sort_random_numbers", "min": 3.14571928977966, "max": 3.24854564666748, "mean": 3.1720624764760301}, {"version": "1.41.2_local", "index": 6, "benchmark": "table_with_float_keys", "min": 3.0663917064666699, "max": 3.1419210433960001, "mean": 3.0857014656066899}, {"version": "1.41.2_local", "index": 7, "benchmark": "table_with_struct_keys", "min": 2.7412257194518999, "max": 2.8104293346404998, "mean": 2.7679736349317801}, {"version": "1.41.2_local", "index": 8, "benchmark": "table_with_tuple_keys", "min": 2.7907197475433301, "max": 2.8701388835907, "mean": 2.82418343755934}, {"version": "1.42.0-dev_local", "index": 1, "benchmark": "aoc_2020_d15_p1", "min": 2.7687749862670898, "max": 2.7875947952270499, "mean": 2.7782056331634499}, {"version": "1.42.0-dev_local", "index": 2, "benchmark": "dict_words", "min": 2.9829113483428999, "max": 3.0476708412170401, "mean": 3.0049548943837499}, {"version": "1.42.0-dev_local", "index": 3, "benchmark": "hash_numbers", "min": 3.1082623004913299, "max": 3.1348075866699201, "mean": 3.1245372295379599}, {"version": "1.42.0-dev_local", "index": 4, "benchmark": "hexagon_tuples", "min": 2.7654073238372798, "max": 2.7957289218902601, "mean": 2.7800568739573199}, {"version": "1.42.0-dev_local", "index": 5, "benchmark": "sort_random_numbers", "min": 3.12715768814087, "max": 3.1690042018890399, "mean": 3.1493846178054801}, {"version": "1.42.0-dev_local", "index": 6, "benchmark": "table_with_float_keys", "min": 2.9828016757965101, "max": 3.04062747955322, "mean": 3.02176713943481}, {"version": "1.42.0-dev_local", "index": 7, "benchmark": "table_with_struct_keys", "min": 2.73016381263733, "max": 2.8218617439270002, "mean": 2.7699818081326}, {"version": "1.42.0-dev_local", "index": 8, "benchmark": "table_with_tuple_keys", "min": 2.7672288417816202, "max": 2.82243752479553, "mean": 2.80133618248834}, {"version": "1.42.1_local", "index": 1, "benchmark": "aoc_2020_d15_p1", "min": 2.7738049030303999, "max": 2.7822859287261998, "mean": 2.7788014411926301}, {"version": "1.42.1_local", "index": 2, "benchmark": "dict_words", "min": 2.90025734901428, "max": 3.06377029418945, "mean": 2.9819232622782401}, {"version": "1.42.1_local", "index": 3, "benchmark": "hash_numbers", "min": 3.1187486648559601, "max": 3.15783786773682, "mean": 3.1323459148407}, {"version": "1.42.1_local", "index": 4, "benchmark": "hexagon_tuples", "min": 2.75238060951233, "max": 2.7867376804351802, "mean": 2.7693272431691498}, {"version": "1.42.1_local", "index": 5, "benchmark": "sort_random_numbers", "min": 3.1189892292022701, "max": 3.1623978614807098, "mean": 3.1328935225804599}, {"version": "1.42.1_local", "index": 6, "benchmark": "table_with_float_keys", "min": 2.9395182132720898, "max": 3.0665986537933301, "mean": 3.0245830217997201}, {"version": "1.42.1_local", "index": 7, "benchmark": "table_with_struct_keys", "min": 2.7431821823120099, "max": 2.8111553192138699, "mean": 2.77903442912632}, {"version": "1.42.1_local", "index": 8, "benchmark": "table_with_tuple_keys", "min": 2.7865076065063499, "max": 2.8384423255920401, "mean": 2.8087603780958399}, {"version": "1.43.0_local", "index": 1, "benchmark": "aoc_2020_d15_p1", "min": 2.6462070941925, "max": 2.7115244865417498, "mean": 2.68285934130351}, {"version": "1.43.0_local", "index": 2, "benchmark": "dict_words", "min": 2.6688613891601598, "max": 2.77028155326843, "mean": 2.7213011582692501}, {"version": "1.43.0_local", "index": 3, "benchmark": "hash_numbers", "min": 2.7262480258941699, "max": 2.7487523555755602, "mean": 2.7349375883738198}, {"version": "1.43.0_local", "index": 4, "benchmark": "hexagon_tuples", "min": 2.8025922775268599, "max": 2.9081251621246298, "mean": 2.8381379445393899}, {"version": "1.43.0_local", "index": 5, "benchmark": "sort_random_numbers", "min": 3.0620813369750999, "max": 3.1523783206939702, "mean": 3.0988717873891201}, {"version": "1.43.0_local", "index": 6, "benchmark": "table_with_float_keys", "min": 2.8775906562805198, "max": 2.97201371192932, "mean": 2.9269256591796902}, {"version": "1.43.0_local", "index": 7, "benchmark": "table_with_struct_keys", "min": 2.72795557975769, "max": 2.8105607032775901, "mean": 2.78649547364977}, {"version": "1.43.0_local", "index": 8, "benchmark": "table_with_tuple_keys", "min": 2.71307396888733, "max": 2.80439233779907, "mean": 2.7597863674163801}];
+
+const PALETTE = [
+  "#6ea8fe", "#f59e0b", "#4ade80", "#f472b6", "#a78bfa",
+  "#2dd4bf", "#fb7185", "#facc15", "#38bdf8", "#c084fc"
+];
+
+let state = {
+  data: BENCHMARK_DATA,
+  scale: "log",
+  hiddenVersions: new Set(),
+  baseline: null,
+  sortKey: "benchmark",
+  sortAsc: true
+};
+
+function parseDatText(text) {
+  const rows = [];
+  for (const rawLine of text.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith("#")) continue;
+    const parts = line.split("\t");
+    if (parts.length < 6) continue;
+    const [version, idxStr, benchmark, minStr, maxStr, meanStr] = parts;
+    const min = parseFloat(minStr);
+    const max = parseFloat(maxStr);
+    const mean = parseFloat(meanStr);
+    if (!Number.isFinite(min) || !Number.isFinite(max) || !Number.isFinite(mean)) continue;
+    rows.push({
+      version,
+      index: parseInt(idxStr, 10) || 0,
+      benchmark,
+      min,
+      max,
+      mean
+    });
+  }
+  return rows;
+}
+
+function formatTime(sec) {
+  if (sec < 0.001) return (sec * 1e6).toFixed(1) + " µs";
+  if (sec < 1) return (sec * 1000).toFixed(2) + " ms";
+  return sec.toFixed(3) + " s";
+}
+
+function getVersions(data) {
+  const seen = [];
+  for (const r of data) {
+    if (!seen.includes(r.version)) seen.push(r.version);
+  }
+  return seen;
+}
+
+function getBenchmarks(data) {
+  const map = new Map();
+  for (const r of data) {
+    if (!map.has(r.benchmark)) map.set(r.benchmark, r.index);
+  }
+  return Array.from(map.entries())
+    .sort((a, b) => a[1] - b[1] || a[0].localeCompare(b[0]))
+    .map(([name]) => name);
+}
+
+function renderStats(versions, benchmarks) {
+  const grid = document.getElementById("statsGrid");
+  const visibleCount = versions.filter(v => !state.hiddenVersions.has(v)).length;
+  grid.innerHTML = `
+    <div class="stat-card"><div class="stat-label">Versions</div><div class="stat-value">${visibleCount} / ${versions.length}</div></div>
+    <div class="stat-card"><div class="stat-label">Benchmarks</div><div class="stat-value">${benchmarks.length}</div></div>
+    <div class="stat-card"><div class="stat-label">Data Points</div><div class="stat-value">${state.data.length}</div></div>
+    <div class="stat-card"><div class="stat-label">Baseline</div><div class="stat-value" style="font-size:1rem">${state.baseline || "—"}</div></div>
+  `;
+}
+
+function renderLegend(versions) {
+  const el = document.getElementById("legend");
+  el.innerHTML = "";
+  versions.forEach((ver, i) => {
+    const item = document.createElement("div");
+    item.className = "legend-item" + (state.hiddenVersions.has(ver) ? " off" : "");
+    const color = PALETTE[i % PALETTE.length];
+    item.innerHTML = `<span class="legend-swatch" style="background:${color}"></span><span>${ver}</span>`;
+    item.onclick = () => {
+      if (state.hiddenVersions.has(ver)) state.hiddenVersions.delete(ver);
+      else state.hiddenVersions.add(ver);
+      render();
+    };
+    el.appendChild(item);
+  });
+}
+
+function renderBaselineSelect(versions) {
+  const sel = document.getElementById("baselineSelect");
+  if (!state.baseline || !versions.includes(state.baseline)) {
+    state.baseline = versions[0] || null;
+  }
+  sel.innerHTML = versions.map(v =>
+    `<option value="${v}" ${v === state.baseline ? "selected" : ""}>Baseline: ${v}</option>`
+  ).join("");
+}
+
+function renderChart(versions, benchmarks) {
+  const wrap = document.getElementById("chartWrap");
+  const visibleVersions = versions.filter(v => !state.hiddenVersions.has(v));
+  const filtered = state.data.filter(d => !state.hiddenVersions.has(d.version));
+
+  if (!filtered.length || !benchmarks.length) {
+    wrap.innerHTML = `<div class="empty-state">No data to display. Load a <code>report.dat</code> file or enable at least one version.</div>`;
+    return;
+  }
+
+  const rowH = Math.max(38, visibleVersions.length * 10 + 18);
+  const pad = { top: 24, right: 28, bottom: 42, left: 195 };
+  const width = 980;
+  const height = pad.top + pad.bottom + benchmarks.length * rowH;
+  const plotW = width - pad.left - pad.right;
+
+  let minVal = Infinity, maxVal = -Infinity;
+  for (const d of filtered) {
+    if (d.min < minVal) minVal = d.min;
+    if (d.max > maxVal) maxVal = d.max;
+  }
+
+  const isLog = state.scale === "log";
+  const xMin = isLog ? Math.pow(10, Math.floor(Math.log10(Math.max(minVal, 1e-6)))) : 0;
+  const xMax = isLog ? Math.pow(10, Math.ceil(Math.log10(maxVal))) : maxVal * 1.08;
+
+  const xScale = (val) => {
+    if (isLog) {
+      const lMin = Math.log10(xMin);
+      const lMax = Math.log10(xMax);
+      const lVal = Math.log10(Math.max(val, xMin));
+      return pad.left + ((lVal - lMin) / (lMax - lMin || 1)) * plotW;
+    }
+    return pad.left + (val / (xMax || 1)) * plotW;
+  };
+
+  let ticks = [];
+  if (isLog) {
+    const pMin = Math.floor(Math.log10(xMin));
+    const pMax = Math.ceil(Math.log10(xMax));
+    for (let p = pMin; p <= pMax; p++) ticks.push(Math.pow(10, p));
+  } else {
+    const steps = 5;
+    for (let i = 0; i <= steps; i++) ticks.push((xMax / steps) * i);
+  }
+
+  let svg = `<svg class="chart" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">`;
+
+  // Vertical gridlines & x-axis ticks
+  for (const t of ticks) {
+    const x = xScale(t);
+    svg += `<line x1="${x}" y1="${pad.top}" x2="${x}" y2="${height - pad.bottom}" stroke="#262b38" stroke-width="1"/>`;
+    const label = isLog ? (t >= 1 ? t + "s" : (t * 1000) + "ms") : formatTime(t);
+    svg += `<text x="${x}" y="${height - pad.bottom + 18}" fill="#8b92a5" font-size="11" text-anchor="middle">${label}</text>`;
+  }
+  svg += `<text x="${pad.left + plotW / 2}" y="${height - 8}" fill="#8b92a5" font-size="11" text-anchor="middle">Elapsed Time (${isLog ? "log₁₀" : "linear"})</text>`;
+
+  // Horizontal benchmark bands & labels
+  benchmarks.forEach((b, bi) => {
+    const yTop = pad.top + bi * rowH;
+    const yMid = yTop + rowH / 2;
+    if (bi % 2 === 1) {
+      svg += `<rect x="${pad.left}" y="${yTop}" width="${plotW}" height="${rowH}" fill="rgba(255,255,255,0.015)"/>`;
+    }
+    svg += `<line x1="${pad.left}" y1="${yTop + rowH}" x2="${width - pad.right}" y2="${yTop + rowH}" stroke="#222633" stroke-width="1"/>`;
+    svg += `<text x="${pad.left - 10}" y="${yMid + 4}" fill="#e6e9ef" font-size="12" text-anchor="end">${b}</text>`;
+  });
+
+  // Data series
+  const nVis = visibleVersions.length;
+  visibleVersions.forEach((ver, vi) => {
+    const color = PALETTE[versions.indexOf(ver) % PALETTE.length];
+    const offset = nVis > 1 ? ((vi / (nVis - 1)) - 0.5) * Math.min(rowH * 0.68, nVis * 9) : 0;
+
+    benchmarks.forEach((b, bi) => {
+      const d = filtered.find(r => r.version === ver && r.benchmark === b);
+      if (!d) return;
+      const y = pad.top + bi * rowH + rowH / 2 + offset;
+      const x1 = xScale(d.min);
+      const x2 = xScale(d.max);
+      const xm = xScale(d.mean);
+
+      svg += `<g class="pt" data-ver="${ver}" data-bench="${b}" data-min="${d.min}" data-mean="${d.mean}" data-max="${d.max}">`;
+      svg += `<line x1="${x1}" y1="${y}" x2="${x2}" y2="${y}" stroke="${color}" stroke-width="2" stroke-opacity="0.8"/>`;
+      svg += `<line x1="${x1}" y1="${y - 3.5}" x2="${x1}" y2="${y + 3.5}" stroke="${color}" stroke-width="1.5"/>`;
+      svg += `<line x1="${x2}" y1="${y - 3.5}" x2="${x2}" y2="${y + 3.5}" stroke="${color}" stroke-width="1.5"/>`;
+      svg += `<circle cx="${xm}" cy="${y}" r="4" fill="${color}" stroke="#0f1117" stroke-width="1"/>`;
+      svg += `<rect x="${Math.min(x1, xm) - 4}" y="${y - 6}" width="${Math.max(8, Math.abs(x2 - x1) + 8)}" height="12" fill="transparent"/>`;
+      svg += `</g>`;
+    });
+  });
+
+  svg += `</svg>`;
+  wrap.innerHTML = svg;
+
+  const tooltip = document.getElementById("tooltip");
+  wrap.querySelectorAll(".pt").forEach(el => {
+    el.addEventListener("mouseenter", (e) => {
+      const { ver, bench, min, mean, max } = el.dataset;
+      const base = state.data.find(r => r.version === state.baseline && r.benchmark === bench);
+      let relHtml = "";
+      if (base && ver !== state.baseline) {
+        const ratio = parseFloat(mean) / base.mean;
+        const cls = ratio <= 1 ? "delta-good" : "delta-bad";
+        const label = ratio <= 1 ? `${(1 / ratio).toFixed(2)}× faster` : `${ratio.toFixed(2)}× slower`;
+        relHtml = `<div class="${cls}">vs ${state.baseline}: ${label}</div>`;
+      }
+      tooltip.innerHTML = `
+        <div style="font-weight:700; margin-bottom:4px;">${bench} — ${ver}</div>
+        <div>mean: ${formatTime(parseFloat(mean))}</div>
+        <div>min:  ${formatTime(parseFloat(min))}</div>
+        <div>max:  ${formatTime(parseFloat(max))}</div>
+        ${relHtml}
+      `;
+      tooltip.style.display = "block";
+    });
+    el.addEventListener("mousemove", (e) => {
+      tooltip.style.left = (e.clientX + 14) + "px";
+      tooltip.style.top = (e.clientY + 14) + "px";
+    });
+    el.addEventListener("mouseleave", () => {
+      tooltip.style.display = "none";
+    });
+  });
+}
+
+function renderTable() {
+  const wrap = document.getElementById("tableWrap");
+  const rows = state.data
+    .filter(d => !state.hiddenVersions.has(d.version))
+    .map(d => {
+      const base = state.data.find(r => r.version === state.baseline && r.benchmark === d.benchmark);
+      const ratio = base ? d.mean / base.mean : null;
+      return { ...d, ratio };
+    });
+
+  rows.sort((a, b) => {
+    const k = state.sortKey;
+    const va = a[k] ?? 0;
+    const vb = b[k] ?? 0;
+    const cmp = typeof va === "string" ? va.localeCompare(vb) : va - vb;
+    return state.sortAsc ? cmp : -cmp;
+  });
+
+  const cols = [
+    ["benchmark", "Benchmark", false],
+    ["version", "Version", false],
+    ["min", "Min", true],
+    ["mean", "Mean", true],
+    ["max", "Max", true],
+    ["ratio", `vs ${state.baseline || "Baseline"}`, true]
+  ];
+
+  let html = `<table><thead><tr>`;
+  for (const [key, label, isNum] of cols) {
+    const arrow = state.sortKey === key ? (state.sortAsc ? " ▲" : " ▼") : "";
+    html += `<th class="${isNum ? "num" : ""}" data-key="${key}">${label}${arrow}</th>`;
+  }
+  html += `</tr></thead><tbody>`;
+
+  for (const r of rows) {
+    let ratioCell = "—";
+    if (r.ratio !== null) {
+      if (r.version === state.baseline) {
+        ratioCell = `<span style="color:var(--muted)">1.00×</span>`;
+      } else {
+        const cls = r.ratio <= 1 ? "delta-good" : "delta-bad";
+        ratioCell = `<span class="${cls}">${r.ratio.toFixed(2)}×</span>`;
+      }
+    }
+    html += `<tr>
+      <td>${r.benchmark}</td>
+      <td>${r.version}</td>
+      <td class="num">${formatTime(r.min)}</td>
+      <td class="num">${formatTime(r.mean)}</td>
+      <td class="num">${formatTime(r.max)}</td>
+      <td class="num">${ratioCell}</td>
+    </tr>`;
+  }
+  html += `</tbody></table>`;
+  wrap.innerHTML = html;
+
+  wrap.querySelectorAll("th").forEach(th => {
+    th.onclick = () => {
+      const k = th.dataset.key;
+      if (state.sortKey === k) state.sortAsc = !state.sortAsc;
+      else { state.sortKey = k; state.sortAsc = true; }
+      renderTable();
+    };
+  });
+}
+
+function render() {
+  const versions = getVersions(state.data);
+  const benchmarks = getBenchmarks(state.data);
+  renderBaselineSelect(versions);
+  renderStats(versions, benchmarks);
+  renderLegend(versions);
+  renderChart(versions, benchmarks);
+  renderTable();
+}
+
+document.getElementById("btnLog").onclick = () => {
+  state.scale = "log";
+  document.getElementById("btnLog").classList.add("active");
+  document.getElementById("btnLinear").classList.remove("active");
+  render();
+};
+document.getElementById("btnLinear").onclick = () => {
+  state.scale = "linear";
+  document.getElementById("btnLinear").classList.add("active");
+  document.getElementById("btnLog").classList.remove("active");
+  render();
+};
+document.getElementById("baselineSelect").onchange = (e) => {
+  state.baseline = e.target.value;
+  render();
+};
+document.getElementById("btnAll").onclick = () => {
+  state.hiddenVersions.clear();
+  render();
+};
+document.getElementById("btnNone").onclick = () => {
+  getVersions(state.data).forEach(v => state.hiddenVersions.add(v));
+  render();
+};
+
+function loadDatFile(file) {
+  const reader = new FileReader();
+  reader.onload = () => {
+    state.data = parseDatText(reader.result);
+    state.hiddenVersions.clear();
+    render();
+  };
+  reader.readAsText(file);
+}
+
+document.getElementById("fileInput").onchange = (e) => {
+  if (e.target.files[0]) loadDatFile(e.target.files[0]);
+};
+document.body.addEventListener("dragover", (e) => e.preventDefault());
+document.body.addEventListener("drop", (e) => {
+  e.preventDefault();
+  if (e.dataTransfer.files[0]) loadDatFile(e.dataTransfer.files[0]);
+});
+
+render();
+</script>
+</body>
+</html>
