@@ -1,5 +1,8 @@
 (def input [1 20 11 6 12 0])
 
+(def args (dyn :args))
+(def limit (or (scan-number (get args 1)) 10000))
+
 (def num-turns @{})
 
 (defn put-last [n idx]
@@ -16,8 +19,6 @@
   (if (tuple? res)
       (- (last res) (first res))
       0))
-
-(def limit 1000000)
 
 (defn part1[]
   (var i 1)
